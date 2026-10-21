@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.12.0](https://github.com/vitroyfix/video-extension/compare/v1.11.0...v1.12.0) (2026-10-21)
+
+
+### 🎉 New Features
+
+* add copy URL button to detected video cards + remove mediabunny refs ([0dad966](https://github.com/vitroyfix/video-extension/commit/0dad9663d15ca8a0d9c5a83df9a7649912a66257))
+* add HLS quality selection button and functionality in video popup ([#12](https://github.com/vitroyfix/video-extension/issues/12)) ([0b21827](https://github.com/vitroyfix/video-extension/commit/0b218271caf833de0d6b79e063e25b0ff370caa6))
+* add MPEG-DASH support with type refactoring ([#32](https://github.com/vitroyfix/video-extension/issues/32)) ([f5a24ff](https://github.com/vitroyfix/video-extension/commit/f5a24ffd96362607530e081b63a29990ec6e5c0f))
+* bumping up license ([c9cbd2a](https://github.com/vitroyfix/video-extension/commit/c9cbd2a62fc2c1e63376ac1569aad5c43955a74f))
+* change accent color from green to blue to match extension icon ([db62dee](https://github.com/vitroyfix/video-extension/commit/db62deea66028203a76a881b1be7a8d411f18bc8))
+* cloud upload — Google Drive & S3 ([#36](https://github.com/vitroyfix/video-extension/issues/36)) ([04f15f3](https://github.com/vitroyfix/video-extension/commit/04f15f35be088e58ea2d5d1a13e1d62039995431))
+* drm validation ([#23](https://github.com/vitroyfix/video-extension/issues/23)) ([d8f5acb](https://github.com/vitroyfix/video-extension/commit/d8f5acb2afff013d70739295dc2f0bca650c6ac2))
+* Enable HLS and M3U8 detection, Dark theme ([#2](https://github.com/vitroyfix/video-extension/issues/2)) ([ae8f8b1](https://github.com/vitroyfix/video-extension/commit/ae8f8b11b92bcf8c5cb6fa13292c2f0358a9715b))
+* Enhance README with offscreen document details and project structure ([7ade312](https://github.com/vitroyfix/video-extension/commit/7ade3120634ee1f8233059053469583f3497f116))
+* enhance-ffmpeg: Improve UI response and updates when extension downloads multiple files, open / close ffmpeg isntance on demand ([#30](https://github.com/vitroyfix/video-extension/issues/30)) ([9f2a21e](https://github.com/vitroyfix/video-extension/commit/9f2a21e9d6a11bac03a3766d90025a1c65220a46))
+* HLS videos ([#1](https://github.com/vitroyfix/video-extension/issues/1)) ([dd10ae7](https://github.com/vitroyfix/video-extension/commit/dd10ae75f4c192631dde10d0b8ea0c7b2ff63af2))
+* hls-stream: Enable extension to download live streams in HLS protocol ([#25](https://github.com/vitroyfix/video-extension/issues/25)) ([074cd7b](https://github.com/vitroyfix/video-extension/commit/074cd7beb38d5e9ffd4fb5f4b9bc0e335575d66e))
+* hls-tab: Refactored UI/UX for Manifest view and better bottom bar, Cancel buttom, tweaks ([#16](https://github.com/vitroyfix/video-extension/issues/16)) ([ea6471d](https://github.com/vitroyfix/video-extension/commit/ea6471dec5c703df7358e8296614c50186e4ddc8))
+* iframe-and-UI: iframe detection and UI/UX refactor ([#27](https://github.com/vitroyfix/video-extension/issues/27)) ([9f429c8](https://github.com/vitroyfix/video-extension/commit/9f429c8a0b6fae4988a8d1ec031cf18beefd6f9c))
+* Media Bridge 2.0 — download videos from almost any website ([d6741d7](https://github.com/vitroyfix/video-extension/commit/d6741d7bebb5ee527ba98f9ec9f7e5d5ad3e27ac))
+* release config ([#14](https://github.com/vitroyfix/video-extension/issues/14)) ([d56bb03](https://github.com/vitroyfix/video-extension/commit/d56bb036863de755dd275ed4866245647d331436))
+* release-please: Added Github actions for Releases ([#3](https://github.com/vitroyfix/video-extension/issues/3)) ([a45fb67](https://github.com/vitroyfix/video-extension/commit/a45fb67896bcc8f93b8da9bdbea130f539b8fbd5))
+* **service-worker:** implement keep-alive mechanism to prevent termination during long downloads ([#20](https://github.com/vitroyfix/video-extension/issues/20)) ([bd5d6e7](https://github.com/vitroyfix/video-extension/commit/bd5d6e7d4373c080fb1a376452992b557c777a15))
+* update build-release workflow for release asset handling ([#7](https://github.com/vitroyfix/video-extension/issues/7)) ([4e5af73](https://github.com/vitroyfix/video-extension/commit/4e5af73d9e5a56bf06be775f8dbca55d3b9a8a14))
+
+
+### 🐛 Bug Fixes
+
+* build: Build conditionally in release-please workflow ([#9](https://github.com/vitroyfix/video-extension/issues/9)) ([390c7e0](https://github.com/vitroyfix/video-extension/commit/390c7e092f10146b874fbeadf4bc24e589e401f2))
+* fixed release please action ([#4](https://github.com/vitroyfix/video-extension/issues/4)) ([63b9583](https://github.com/vitroyfix/video-extension/commit/63b958320720266f401e9803eca5ade7db64b095))
+
+
+### 📚 Documentation
+
+* adjusted changelog ([46e9314](https://github.com/vitroyfix/video-extension/commit/46e9314508548d66c3ef8385198ccb446e17e119))
+* update README and CLAUDE.md with accurate architecture and planned features ([94d5efb](https://github.com/vitroyfix/video-extension/commit/94d5efb27c4a6c2f7c38d91994af7b9c57caf624))
+
 ## [1.11.0](https://github.com/jvillegasd/media-bridge/compare/v1.10.0...v1.11.0) (2026-03-07)
 
 
