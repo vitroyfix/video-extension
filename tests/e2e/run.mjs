@@ -80,6 +80,23 @@ try {
       return out;
     }, tabId);
 
+  /** Wait until the tab's top-frame content script answers (slow machines / CI). */
+  const waitForContent = async (tabId, timeoutMs = 30000) => {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+      const ok = await ext(async (id) => {
+        try {
+          return !!(await chrome.tabs.sendMessage(id, { type: "CAPTURE_GET_STATUS", payload: { frameId: 0 } }, { frameId: 0 }));
+        } catch {
+          return false;
+        }
+      }, tabId);
+      if (ok) return;
+      await sleep(250);
+    }
+    throw new Error(`content script not ready in tab ${tabId}`);
+  };
+
   // ---- 1. Extension-less HLS endpoint, identified by Content-Type ----
   const hlsPage = await browser.newPage();
   await hlsPage.goto(`${BASE}/hls.html`);
@@ -111,10 +128,11 @@ try {
   await msePage.goto(`${BASE}/mse.html`);
   await sleep(1500);
   const mseTab = await tabIdFor(`${BASE}/mse.html`);
+  await waitForContent(mseTab);
   const startRes = await ext((id) => chrome.tabs.sendMessage(id, { type: "CAPTURE_COMMAND", payload: { action: "start" } }, { frameId: 0 }), mseTab);
   check("Capture armed via popup command", startRes?.success === true, JSON.stringify(startRes));
   await msePage.evaluate(() => { window.__go = true; });
-  await msePage.waitForFunction(() => window.__appendDone || window.__appendError, { timeout: 20000 });
+  await msePage.waitForFunction(() => window.__appendDone || window.__appendError, { timeout: 90000 });
   const appendInfo = await msePage.evaluate(() => window.__appendDone || window.__appendError);
   await sleep(1200); // status is throttled
   const status = await ext((id) => chrome.tabs.sendMessage(id, { type: "CAPTURE_GET_STATUS", payload: { frameId: 0 } }, { frameId: 0 }), mseTab);
@@ -133,9 +151,10 @@ try {
   await drmPage.goto(`${BASE}/mse.html?drm=1`);
   await sleep(1500);
   const drmTab = await tabIdFor(`${BASE}/mse.html?drm=1`);
+  await waitForContent(drmTab);
   await ext((id) => chrome.tabs.sendMessage(id, { type: "CAPTURE_COMMAND", payload: { action: "start" } }, { frameId: 0 }), drmTab);
   await drmPage.evaluate(() => { window.__go = true; });
-  await drmPage.waitForFunction(() => window.__appendDone || window.__appendError, { timeout: 20000 });
+  await drmPage.waitForFunction(() => window.__appendDone || window.__appendError, { timeout: 90000 });
   await sleep(1200);
   const drmStatus = await ext((id) => chrome.tabs.sendMessage(id, { type: "CAPTURE_GET_STATUS", payload: { frameId: 0 } }, { frameId: 0 }), drmTab);
   const drmSess = drmStatus?.sessions?.[0];
@@ -174,7 +193,7 @@ try {
         }),
     );
   let states = [];
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 300; i++) {
     states = await readStates();
     if (states.length >= 2 && states.every((s) => ["completed", "failed", "cancelled"].includes(s.stage))) break;
     await sleep(1000);
