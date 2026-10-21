@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Media Bridge",
-  "version": "1.11.0",
-  "description": "Download videos from the web (direct downloads only) and upload to Google Drive",
+  "name": "Media Bridge — Video Downloader",
+  "version": "2.0.0",
+  "description": "Download videos from almost any website: HLS, DASH, direct files, live streams, and MediaSource players via stream capture.",
   "permissions": [
     "identity",
     "declarativeNetRequest",
@@ -14,7 +14,8 @@
     "tabs",
     "activeTab",
     "offscreen",
-    "webNavigation"
+    "webNavigation",
+    "contextMenus"
   ],
   "host_permissions": [
     "http://*/*",
@@ -34,6 +35,18 @@
     }
   },
   "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "mse-capture.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "world": "MAIN"
+    },
     {
       "matches": [
         "<all_urls>"
@@ -67,6 +80,35 @@
       "matches": [
         "<all_urls>"
       ]
+    },
+    {
+      "resources": [
+        "capture-bridge/bridge.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
-  ]
+  ],
+  "short_name": "Media Bridge",
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
+      "description": "Open Media Bridge"
+    },
+    "download-best-video": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "Download the best video detected on this page"
+    },
+    "download-all-videos": {
+      "suggested_key": {
+        "default": "Alt+Shift+A"
+      },
+      "description": "Download all videos detected on this page"
+    }
+  }
 }

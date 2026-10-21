@@ -1,287 +1,268 @@
-# Media Bridge Browser Extension
+<div align="center">
 
-A Manifest V3 Chromium extension that detects and downloads videos from the web — HLS, MPEG-DASH, and direct video URLs.
+<img src="public/icons/icon-128.png" width="96" alt="Media Bridge logo">
+
+# Media Bridge — Video Downloader
+
+**A Chromium extension (Manifest V3) for downloading videos from almost any website.**
+HLS · MPEG-DASH · direct files · live streams · MediaSource stream capture · cloud upload
+
+![Manifest V3](https://img.shields.io/badge/Manifest-V3-2563eb)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
+![FFmpeg.wasm](https://img.shields.io/badge/FFmpeg-wasm-007808)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+![E2E](https://img.shields.io/badge/e2e-20%20checks-16a34a)
+
+</div>
+
+---
+
+## Why Media Bridge
+
+Most "video downloader" extensions only catch `.mp4` links. Modern sites stream through adaptive manifests that often have no telling URL, or through MediaSource players with a `blob:` source and nothing to grab. Media Bridge combines three detection layers so it works on far more sites:
+
+| Layer | What it catches |
+|---|---|
+| **Network sniffer** (service worker) | HLS/DASH manifests and progressive files, identified by **URL *and* `Content-Type`**: works for extension-less endpoints like `/api/stream?id=42`. Segments, byte-range slices, ads and tiny previews are filtered out. |
+| **DOM observer** (content script) | `<video>`/`<source>` elements, including ones added later by single-page apps. |
+| **Stream capture** (MAIN-world hook) | Players that feed `<video>` through Media Source Extensions with **no detectable source at all**. Media Bridge records the media the player loads and muxes it into a file. |
+
+Everything is processed locally in your browser with FFmpeg.wasm. No servers, no accounts, no telemetry.
 
 ## Features
 
-- **Multiple Format Support**: HLS (`.m3u8`), MPEG-DASH (`.mpd`), and direct video URLs (`.mp4`, `.webm`, etc.)
-- **Automatic Video Detection**: Content script detects videos via DOM observation and network request interception
-- **Live Stream Recording**: Record live HLS and DASH streams in real-time with a REC button
-- **Popup Interface**: Manual URL input with quality selector for HLS/DASH playlists
-- **Real-time Progress**: Download speed, percentage, and stage displayed live
-- **Segment Merging**: FFmpeg.wasm muxes HLS/DASH segments into MP4 files
-- **Concurrent Downloads**: Up to 10 simultaneous segment downloads (default: 3)
-- **Partial Save on Cancel**: Save whatever segments were collected before cancellation
-- **AES-128 Decryption**: Decrypts encrypted HLS segments transparently
-- **Header Injection**: Injects `Origin`/`Referer` headers via `declarativeNetRequest` for CDNs that require them
-- **Download History**: Completed, failed, and cancelled downloads are persisted and browsable in the options page History section with infinite scroll
-- **Notifications**: Optional OS notification and auto-open file on download completion
-- **Cloud Upload**: Upload completed downloads to Google Drive or S3-compatible storage from the History page
-- **Configurable Settings**: Recording poll intervals, fetch retry behaviour, detection cache sizes, IDB sync rate — all tunable from the options page
+### Downloading
+- **HLS** master and media playlists with a quality picker, separate audio renditions, and **AES-128** decryption
+- **MPEG-DASH** with highest-bandwidth or user-selected video and audio, muxed to MP4
+- **Direct files** (MP4, WebM, MOV, MKV, …) through Chrome's download manager
+- **Live recording** of HLS and DASH live streams (REC → STOP → merged MP4)
+- **Stop & save**: cancel a long download and keep what has been fetched so far
+- **Header injection** of `Origin`/`Referer` through `declarativeNetRequest` for CDNs that require them
+- Concurrent segment downloads with retries, backoff and a tolerated failure rate
 
-## ⚠️ Output File Size Limit
+### Works on more sites
+- **Content-Type detection**: manifests and videos are found even when the URL has no `.m3u8`, `.mpd` or `.mp4`
+- **Early-request replay**: autoplay players often fetch their manifest before content scripts load. Those detections are queued and replayed, so "turn off autoplay and reload" is rarely needed
+- **Stream capture** for MediaSource players (see [below](#stream-capture))
+- Every frame is scanned, so embedded players inside iframes are detected too
 
-Video processing runs entirely inside the browser, so output files are subject to browser memory limits. In practice, files above roughly **2 GB** will fail during the merge stage.
+### Fast to use
+- **In-page download button**: hover any video to get a button that lists every source detected for that player
+- **Right-click menu**: *Download this video*, *Download linked media*, *Capture this stream*, *Download all detected videos*
+- **Keyboard shortcuts**: download the best video on the page without opening anything
+- **Toolbar badge** showing how many videos were detected in the tab
+- **Download all** in the popup for pages with many clips
 
-## Cloud Upload Setup
-
-Completed downloads can be uploaded to **Google Drive** or **S3-compatible storage** from **Options → History → item menu → Upload to cloud**.
-
-### Google Drive
-
-Google Drive requires you to create your own OAuth credentials (free):
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a project (or use an existing one).
-2. Enable the **[Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com)**.
-3. Go to **[Credentials](https://console.cloud.google.com/apis/credentials)** → **Create Credentials** → **OAuth client ID**.
-4. Set application type to **Web application**.
-5. Under **Authorized redirect URIs**, add your extension's redirect URI.
-   - Find it in **Options → Cloud Providers → Google Drive** — it's shown next to the Client ID field.
-   - It looks like `https://<extension-id>.chromiumapp.org/`
-6. Copy the **Client ID** and paste it into the options page.
-7. Click **Sign in with Google** to authorize.
-
-> **Note:** If you haven't configured a consent screen yet, Google will prompt you to create one. Choose **External** user type, fill in the required fields, and add yourself as a test user. The app will work in "Testing" mode — no verification needed for personal use.
-
-### S3 / S3-Compatible Storage
-
-1. In **Options → Cloud Providers → S3**, enter your bucket name, region, access key ID, and secret access key.
-2. Your S3 bucket must have a CORS policy that allows the extension origin. The options page generates the correct JSON and provides a **Copy CORS Config** button — paste it into **S3 → Bucket → Permissions → CORS**.
-3. Works with AWS S3, Cloudflare R2, Backblaze B2, Wasabi, MinIO, and any S3-compatible provider.
+### After download
+- **History** with re-download, copy URL and bulk delete
+- **Cloud upload** to Google Drive or any S3-compatible store (AWS S3, Cloudflare R2, Backblaze B2, Wasabi, MinIO), with the S3 secret optionally encrypted at rest (AES-GCM)
+- OS notification and auto-reveal of the file when a download finishes
 
 ## Installation
 
-### Development Build
+> Requires Node.js 18+ and a Chromium-based browser (Chrome, Edge, Brave, Opera, Vivaldi, Chromium).
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd media-bridge
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/vitroyfix/video-extension.git
+cd video-extension
 npm install
-```
-
-3. Build the extension:
-```bash
 npm run build
 ```
 
-4. Load the extension in Chrome:
-   - Open Chrome and navigate to `chrome://extensions/`
-   - Enable "Developer mode" (toggle in top right)
-   - Click "Load unpacked"
-   - Select the `dist` directory
+Then load it:
 
-### Production Build
-
-```bash
-npm run build
-```
-
-The built extension will be in the `dist` directory.
+1. Open `chrome://extensions`
+2. Turn on **Developer mode** (top right)
+3. Click **Load unpacked** and select the `dist/` folder
+4. Pin **Media Bridge** to the toolbar
 
 ## Usage
 
-### Manual Download
+### 1. Detected videos (most sites)
+Play the video, then either:
+- hover the video and click the **Download** button in its corner, or
+- click the toolbar icon (the badge shows how many videos were found) and press **Download** on a card.
 
-1. Click the extension icon in your browser toolbar
-2. Go to the **Manifest** tab
-3. Paste a video URL (HLS, DASH, or direct video)
-4. Select quality (for HLS/DASH playlists)
-5. Click "Download"
+For HLS/DASH you can pick a quality first with **Select quality**. Live streams show a **REC** button.
 
-### Automatic Detection
+### 2. Paste a link
+Use the popup's **Manifest** tab to paste any `.m3u8`, `.mpd` or direct video URL, load its qualities and download.
 
-When visiting a page with video content:
-- The extension automatically detects videos via network request interception
-- Detected videos appear in the **Videos** tab
-- Click "Download" to start
+### 3. Stream capture
+For players that hide their source (the popup says "No videos detected" while the video plays):
 
-### Live Stream Recording
+1. Hover the video → **Download** → **Fast capture from start**, or use the **Stream capture** card in the popup.
+2. Media Bridge restarts the video muted at up to 16× speed and records everything the player loads.
+3. When it reaches the end, click **Stop & save**. The tracks are merged into a single file in the background.
 
-When a live stream is detected:
-- A **REC** button appears in the popup
-- Click REC to start recording segments in real-time
-- Click STOP to stop — segments collected so far are merged into an MP4
+Use **Capture from here** to record from the current position at normal speed instead (useful when a player rejects high playback rates).
 
-## Supported Formats
+### Keyboard shortcuts
 
-| Format | Detection | VOD Download | Live Recording |
-|--------|-----------|-------------|----------------|
-| **HLS** (`.m3u8` master playlist) | ✅ | ✅ | ✅ |
-| **M3U8** (`.m3u8` media playlist) | ✅ | ✅ | — |
-| **DASH** (`.mpd` manifest) | ✅ | ✅ | ✅ |
-| **Direct** (`.mp4`, `.webm`, etc.) | ✅ | ✅ | — |
+| Shortcut | Action |
+|---|---|
+| `Alt+Shift+M` | Open the Media Bridge popup |
+| `Alt+Shift+D` | Download the best video detected on the current page |
+| *(unassigned)* | Download all detected videos. Bind it at `chrome://extensions/shortcuts` (suggested `Alt+Shift+A`) |
 
-## Technical Details
+All shortcuts can be changed at `chrome://extensions/shortcuts`.
 
-### Architecture
+## Stream capture
 
-Media Bridge has five distinct execution contexts that communicate via `chrome.runtime.sendMessage`:
+Stream capture is the feature that makes "any website" realistic, so here is exactly what it does and doesn't do.
 
-1. **Service Worker** (`src/service-worker.ts`): Central orchestrator. Routes messages, manages download lifecycle, keeps itself alive via heartbeat.
-2. **Content Script** (`src/content.ts`): Runs on all pages. Detects videos via DOM observation and network interception. Proxies fetch requests through the service worker to bypass CORS.
-3. **Offscreen Document** (`src/offscreen/`): Hidden page that runs FFmpeg.wasm. Reads segment data from IndexedDB, muxes into MP4, returns a blob URL.
-4. **Popup** (`src/popup/`): Extension action UI — Videos tab (detected videos), Downloads tab (in-progress only), Manifest tab (manual URL + quality selector). A History button opens the options page directly on the history section.
-5. **Options Page** (`src/options/`): Full settings UI with sidebar navigation — Download, History, Google Drive, S3, Recording, Notifications, and Advanced sections. All settings changes are confirmed via a bottom toast notification.
+**How it works**
 
-### Download Flow
+```
+ page (MAIN world)                      content script            capture bridge (extension page)   service worker / offscreen
+ ┌──────────────────────────────┐       ┌──────────────┐          ┌──────────────────────────┐       ┌───────────────────────┐
+ │ SourceBuffer.appendBuffer()  │       │              │ Message- │ writes chunks to the     │ token │ FFmpeg.wasm muxes     │
+ │  ├─ keep latest init segment │──────▶│ capture      │ Channel  │ extension's IndexedDB    │──────▶│ video + audio → MP4 / │
+ │  └─ when armed: keep media   │ post- │ client       │─────────▶│ (zero-copy transfers)    │       │ WebM / MKV, then save │
+ │     segments keyed by decode │ Msg   │              │          └──────────────────────────┘       └───────────────────────┘
+ │     time (tfdt / Timecode)   │       └──────────────┘
+ └──────────────────────────────┘
+```
 
-**HLS / DASH VOD**:
-1. Service worker creates a `DownloadManager`, which delegates to the format-specific handler
-2. Handler parses the manifest and selects highest-bandwidth video + audio
-3. Segments downloaded concurrently (up to `maxConcurrent`), stored as `Uint8Array` in IndexedDB
-4. `OFFSCREEN_PROCESS_*` message triggers FFmpeg muxing in the offscreen document
-5. FFmpeg returns a blob URL; service worker triggers `chrome.downloads.download()` → saves MP4
+- The hook is installed at `document_start`, before any player code runs, and only wraps `addSourceBuffer`, `appendBuffer` and `createObjectURL`. It never alters what the player receives.
+- Segments are keyed by their **decode timestamp** (`tfdt` for fragmented MP4, cluster `Timecode` for WebM). Seeking back and re-buffering doesn't duplicate content, and out-of-order appends are sorted back into timeline order.
+- When the player switches quality mid-stream, the rendition with the most captured data is kept.
+- Buffers move between contexts with transferable `ArrayBuffer`s, so hundreds of MB aren't JSON-serialized.
+- The bridge is authorized with a one-time token that the page never sees. If the bridge can't be used, the tracks are saved as separate files so a capture is never lost.
+- The output container follows the codecs: H.264/AAC → **MP4**, VP9/AV1/Opus → **WebM**, mixed → **MKV**.
 
-**Direct URLs**: `chrome.downloads.download()` used directly, no FFmpeg needed.
+**Limits**
 
-**Live Recording**: Handler polls the media playlist/MPD at the stream's native interval, collecting new segments. On stop (or stream end), collected chunks are merged into an MP4.
+- **DRM is respected.** If the element has EME `MediaKeys`, or the init segment signals encryption (`encv`/`enca`/`tenc`, WebM `ContentEncryption`), the session is marked **DRM-protected**, nothing is retained, and saving is refused.
+- Capture records what the player *loads*. Play to the end, use **Fast capture**, or seek through the parts you want. Gaps you skip stay gaps.
+- Lock the player to one quality for the cleanest result.
+- Players that run MediaSource inside a Web Worker aren't covered by the main-thread hook.
+- Captured data lives in page memory until saved. The per-page cap is configurable (default 1.5 GB).
 
-### State Persistence
+## Settings
 
-| Store | Data | Reason |
-|-------|------|--------|
-| **IndexedDB** (`media-bridge` v3) | `downloads` (state + history), `chunks` (segments) | Survives restarts; supports large `ArrayBuffer` |
-| **`chrome.storage.local`** | All config via `loadSettings()` / `AppSettings` | Simple K/V; 10 MB quota |
+Open **Settings** from the popup (gear icon).
 
-### Project Structure
+| Section | Options |
+|---|---|
+| **Download Settings** | FFmpeg timeout, max concurrent segment downloads, history on/off |
+| **Cloud Providers** | Google Drive (your own OAuth client ID), S3-compatible storage, CORS helper |
+| **Recording** | Live poll interval bounds and cadence |
+| **Page Integration** | In-page button on/off, minimum size for sniffed direct media, capture memory limit, auto-capture on playback |
+| **Notifications** | OS notification on completion, auto-reveal file |
+| **Advanced** | Retries, backoff, fragment failure tolerance, detection cache sizes, IndexedDB sync interval |
+
+### Cloud upload setup
+
+<details>
+<summary><b>Google Drive</b></summary>
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create or select a project and enable the **Google Drive API**.
+2. **Credentials → Create credentials → OAuth client ID**, type **Web application**.
+3. Add the redirect URI shown in **Settings → Cloud Providers → Google Drive** (looks like `https://<extension-id>.chromiumapp.org/`).
+4. Paste the client ID into Settings and click **Sign in with Google**.
+
+If prompted for a consent screen, choose **External**, fill the required fields and add yourself as a test user. Testing mode is enough for personal use.
+</details>
+
+<details>
+<summary><b>S3 / S3-compatible</b></summary>
+
+1. Enter bucket, region, access key ID and secret (and endpoint for non-AWS providers).
+2. Click **Copy CORS Config** and paste it into your bucket's CORS settings. Without it the browser blocks uploads from the extension origin.
+3. Optionally set a passphrase to encrypt the secret key at rest.
+</details>
+
+## Architecture
 
 ```
 src/
-├── service-worker.ts          # Background service worker (central hub)
-├── content.ts                 # Content script (IIFE format, video detection)
-├── shared/
-│   ├── messages.ts            # MessageType enum (all inter-context messages)
-│   └── constants.ts           # Global defaults (concurrency, timeouts, etc.)
+├── service-worker.ts          # Orchestrator: downloads, messages, uploads, keep-alive
+├── background/
+│   ├── network-sniffer.ts     # URL + Content-Type classification, segment filtering, early-request replay
+│   ├── badge.ts               # Per-tab detected-video counter
+│   ├── page-actions.ts        # Context menus, keyboard shortcuts, download-all / best
+│   └── capture-pipeline.ts    # Capture token check → FFmpeg mux → save
+├── inject/
+│   └── mse-capture.ts         # MAIN-world MediaSource hook (document_start, dependency-free)
+├── content.ts                 # Isolated-world content script (detection entry point)
+├── content/
+│   ├── capture-client.ts      # Page ⇄ extension capture hand-off, bridge transfer, raw fallback
+│   └── overlay.ts             # In-page download button (closed shadow DOM)
+├── capture-bridge/            # Web-accessible page that writes captured chunks to IndexedDB
 ├── core/
-│   ├── types/
-│   │   └── index.ts           # VideoFormat, DownloadState, DownloadStage, Fragment, Level
-│   ├── detection/
-│   │   ├── detection-manager.ts
-│   │   ├── thumbnail-utils.ts
-│   │   ├── direct/            # Direct video detection
-│   │   ├── hls/               # HLS detection
-│   │   └── dash/              # DASH detection
-│   ├── downloader/
-│   │   ├── download-manager.ts
-│   │   ├── base-playlist-handler.ts   # Shared segment download logic
-│   │   ├── base-recording-handler.ts  # Shared live recording logic
-│   │   ├── concurrent-workers.ts
-│   │   ├── crypto-utils.ts    # AES-128 decryption
-│   │   ├── header-rules.ts    # declarativeNetRequest header injection
-│   │   ├── direct/            # Direct download handler
-│   │   ├── hls/               # HLS download + recording handlers
-│   │   ├── m3u8/              # M3U8 (media playlist) handler
-│   │   └── dash/              # DASH download + recording handlers
-│   ├── parsers/
-│   │   ├── m3u8-parser.ts     # HLS playlist parsing (m3u8-parser)
-│   │   ├── mpd-parser.ts      # DASH/MPD parsing (mpd-parser)
-│   │   └── playlist-utils.ts  # Shared ParsedPlaylist/ParsedSegment types
-│   ├── ffmpeg/
-│   │   ├── ffmpeg-bridge.ts   # Unified FFmpeg request interface
-│   │   ├── ffmpeg-singleton.ts
-│   │   └── offscreen-manager.ts
-│   ├── database/
-│   │   ├── connection.ts      # IDB init (media-bridge v3)
-│   │   ├── downloads.ts       # Download state CRUD
-│   │   └── chunks.ts          # Segment chunk storage
-│   ├── storage/
-│   │   ├── chrome-storage.ts  # Raw chrome.storage.local access
-│   │   └── settings.ts        # AppSettings interface + loadSettings() — always use this
-│   ├── cloud/                 # Google Drive + S3 upload providers
-│   │   ├── google-auth.ts     # OAuth via launchWebAuthFlow (user-provided client ID)
-│   │   ├── google-drive.ts    # Resumable upload (chunked for files > 5 MB)
-│   │   ├── s3-client.ts       # SigV4-signed PUT / multipart upload
-│   │   └── upload-manager.ts  # Provider registry + routing
-│   ├── metadata/
-│   │   └── metadata-extractor.ts
-│   └── utils/
-│       ├── blob-utils.ts
-│       ├── cancellation.ts
-│       ├── crypto-utils.ts    # AES-128 decryption
-│       ├── download-utils.ts
-│       ├── drm-utils.ts       # DRM detection (FairPlay, PlayReady)
-│       ├── errors.ts          # Custom error classes
-│       ├── fetch-utils.ts     # CORS-aware fetch with retries
-│       ├── file-utils.ts
-│       ├── format-utils.ts
-│       ├── id-utils.ts
-│       ├── logger.ts
-│       └── url-utils.ts
-├── popup/                     # Popup UI (Videos / Downloads / Manifest tabs)
-├── options/                   # Options page (Download, History, Drive, S3, Recording, Notifications, Advanced)
-├── offscreen/                 # Offscreen document (FFmpeg.wasm processing)
-└── types/
-    └── mpd-parser.d.ts        # Type declarations for mpd-parser
+│   ├── detection/             # Direct / HLS / DASH detection handlers
+│   ├── downloader/            # Direct, HLS, M3U8, DASH and live-recording handlers
+│   ├── parsers/               # m3u8-parser / mpd-parser wrappers
+│   ├── ffmpeg/                # Offscreen document bridge
+│   ├── database/              # IndexedDB: download state + raw chunks
+│   ├── cloud/                 # Google Drive + S3 providers
+│   └── storage/               # Typed settings (loadSettings) + secure storage
+├── offscreen/                 # FFmpeg.wasm processing (serialized job queue)
+├── popup/                     # Videos / Manifest / Downloads tabs, capture panel, download-all
+└── options/                   # Settings + history
 ```
 
-### Permissions
+**Execution contexts:** service worker · isolated content script · MAIN-world hook · offscreen document (FFmpeg) · capture bridge iframe · popup · options page. They communicate over `chrome.runtime` messaging. Large binary data goes through IndexedDB, never JSON messages.
 
-- `storage` — Config persistence
-- `downloads` — Save downloaded files
-- `identity` — Google OAuth via `launchWebAuthFlow`
-- `activeTab` / `scripting` — Content script injection
-- `offscreen` — Offscreen document for FFmpeg.wasm
-- `unlimitedStorage` — Large segment storage in IndexedDB
-- `webRequest` — Intercept `.m3u8` / `.mpd` network requests
-- `declarativeNetRequest` — Inject `Origin`/`Referer` headers
-- `tabs` / `webNavigation` — Tab tracking for video detection
-- Host permissions (`http://*/* https://*/*`) — Fetch video content
+**Download flow (HLS/DASH):** parse manifest → fetch segments concurrently into IndexedDB → offscreen FFmpeg concatenates and muxes → `chrome.downloads` saves the result.
+
+See [`CLAUDE.md`](CLAUDE.md) for deeper implementation notes: progress throttling, header injection, partial saves and more.
 
 ## Development
 
-### Build Commands
-
 ```bash
-# Development build with watch mode
-npm run dev
-
-# Production build
-npm run build
-
-# TypeScript type checking only
-npm run type-check
+npm run dev          # rebuild on change (reload the extension in chrome://extensions)
+npm run build        # production build → dist/
+npm run type-check   # TypeScript only
 ```
 
-### Key Dependencies
+### End-to-end tests
 
-| Package | Purpose |
-|---------|---------|
-| `@ffmpeg/ffmpeg` `@ffmpeg/util` | FFmpeg.wasm segment muxing (≤ ~2 GB output) |
-| `m3u8-parser` | HLS playlist parsing |
-| `mpd-parser` | DASH/MPD manifest parsing |
-| `idb` | IndexedDB wrapper |
-| `uuid` | Unique download IDs |
-| `url-toolkit` | URL resolution for relative segment paths |
+A real-browser suite loads `dist/` into Chromium, serves synthetic media locally and verifies:
+
+- HLS detected from `Content-Type` alone, plus badge count
+- Extension-less MP4 detected (including size from headers and early-request replay)
+- Download-all → HLS downloaded and muxed, probed with `ffprobe` for audio+video and duration
+- MSE capture with out-of-order **and duplicate** appends → deduped, ordered, muxed MP4 with both tracks
+- EME/ClearKey session flagged as DRM, nothing retained, save refused
+- In-page overlay injected on hover
+- Output files named after the page title
+
+```bash
+npm run build
+tests/e2e/generate-media.sh          # needs ffmpeg
+CHROME_PATH=/path/to/chromium npm run test:e2e
+```
 
 ## Limitations
 
-- **~2 GB output limit** — The muxer runs in browser memory; files larger than ~2 GB fail during merging.
-- **DRM content** — FairPlay and PlayReady protected streams cannot be downloaded.
-- **CDN restrictions** — Some sites block extension requests via token auth or IP restrictions.
-- **Browser memory** — Total concurrent segment data is limited by available RAM.
+- **DRM-protected content** (Widevine, PlayReady, FairPlay) can't be downloaded or captured. This is intentional.
+- **~2 GB output**: muxing runs in browser memory. Very long or 4K videos may exceed it. Pick a lower quality.
+- **Token/IP-locked CDNs** may reject requests made outside the player. Stream capture usually still works because it uses what the player already loaded.
+- **Platform-specific players** (e.g. YouTube's UMP protocol) don't expose manifests. Use stream capture there.
 
 ## Troubleshooting
 
-### Download Fails
-- Verify the URL is accessible and not DRM-protected
-- Check browser console for errors
-- Ensure the format is supported (HLS, DASH, or direct)
+| Problem | Try |
+|---|---|
+| Popup says *No videos detected* | Start playback and skip ads. Then use **Force detection**, or **Stream capture** from the in-page button. |
+| Download fails immediately | The stream may be DRM-protected or the CDN may require the page session. Try stream capture. |
+| Merge step fails or times out | Raise the FFmpeg timeout in **Download Settings**, or pick a lower quality (≈2 GB limit). |
+| Captured file has gaps | Capture only records what played. Use **Fast capture from start** and let it reach the end. |
+| No in-page button | Check **Settings → Page Integration**. Fullscreen players hide page overlays, so exit fullscreen. |
+| `Alt+Shift+A` does nothing | It's unassigned by default. Set it at `chrome://extensions/shortcuts`. |
 
-### FFmpeg Merge Fails
-- File may exceed the ~2 GB limit — try a shorter clip or lower quality
-- Increase FFmpeg timeout in **Options → Download Settings** if processing is slow
-- Check the offscreen document console for FFmpeg error output
+## Legal
 
-### Extension Not Detecting Videos
-- Some sites obfuscate network requests or use proprietary players
-- Use the **Manifest** tab to paste the URL manually
-- Check browser console for content script errors
+Media Bridge is a tool for saving media you have the right to save: your own uploads, openly licensed content, or material whose terms permit downloading. It doesn't bypass DRM and refuses to capture DRM-protected streams. You are responsible for complying with copyright law and each website's terms of service.
+
+## Credits
+
+Built on [**jvillegasd/media-bridge**](https://github.com/jvillegasd/media-bridge) (MIT). That project contributed the HLS/DASH/direct download engine, live recording, FFmpeg.wasm pipeline, history and cloud upload. This fork adds Content-Type network detection with early-request replay, MediaSource stream capture with DRM refusal, the in-page download button, context menus, keyboard shortcuts, badge counts, download-all, container-aware muxing, an FFmpeg loading race fix and an end-to-end test suite.
+
+Powered by [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm), [m3u8-parser](https://github.com/videojs/m3u8-parser), [mpd-parser](https://github.com/videojs/mpd-parser) and [idb](https://github.com/jakearchibald/idb).
 
 ## License
 
-MIT License — see LICENSE file for details
+[MIT](LICENSE). Original copyright notice retained.

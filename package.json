@@ -1,12 +1,13 @@
 {
   "name": "media-bridge-extension",
-  "version": "1.11.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Download videos (HLS/DASH/direct) and upload to Google Drive",
+  "description": "Download videos from almost any website (HLS/DASH/direct/live/MSE capture) with cloud upload",
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:e2e": "node tests/e2e/run.mjs"
   },
   "keywords": [
     "browser-extension",
@@ -22,6 +23,7 @@
     "@types/m3u8-parser": "^7.2.5",
     "@types/node": "^20.19.24",
     "@types/uuid": "^11.0.0",
+    "puppeteer-core": "^25.15.0",
     "typescript": "^5.5.4",
     "vite": "^7.2.2",
     "vite-plugin-static-copy": "^3.1.4"
